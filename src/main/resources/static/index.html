@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>API Monitoring Dashboard</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+<div class="container">
+
+    <!-- Header -->
+    <header>
+        <h1>API Monitoring</h1>
+        <p>Live backend performance overview</p>
+    </header>
+
+    <!-- Top Metrics -->
+    <div class="grid">
+        <div class="card">
+            <span>Total Requests</span>
+            <h2 id="totalRequests">0</h2>
+        </div>
+
+        <div class="card">
+            <span>Error Rate</span>
+            <h2 id="errorRate">0%</h2>
+        </div>
+
+        <div class="card">
+            <span>Average Response Time</span>
+            <h2 id="avgResponse">0 ms</h2>
+        </div>
+    </div>
+
+    <!-- P95 Window Selector -->
+    <div class="card" style="margin-bottom:16px">
+        <label style="color:#aaa; margin-right:8px">
+            P95 Window:
+        </label>
+        <select id="windowSelect">
+            <option value="5">Last 5 minutes</option>
+            <option value="15">Last 15 minutes</option>
+        </select>
+    </div>
+
+    <!-- Endpoint Chart -->
+    <div class="card chart-card">
+        <h3>Endpoint Performance (P95 latency)</h3>
+        <canvas id="endpointChart"></canvas>
+    </div>
+
+    <!-- Rate Limiting Status -->
+    <div class="card rate-limit-card">
+        <h3>Rate Limiting Status</h3>
+
+        <p>
+            <strong>Status:</strong>
+            <span id="rateEnabled">-</span>
+        </p>
+
+        <p>
+            <strong>Limit:</strong>
+            <span id="rateLimit">-</span>
+        </p>
+
+        <p>
+            <strong>Blocked Requests:</strong>
+            <span id="blockedRequests">0</span>
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        API Monitoring Platform · Spring Boot
+    </footer>
+
+</div>
+
+<!-- JS -->
+<script src="dashboard.js"></script>
+</body>
+</html>

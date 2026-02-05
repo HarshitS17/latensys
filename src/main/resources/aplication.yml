@@ -1,0 +1,67 @@
+# Basic server setup
+server:
+  port: 8080
+  # The app will start on port 8080
+  # So you’ll access APIs at http://localhost:8080
+
+
+# -------------------------------
+# Spring Boot main configuration
+# -------------------------------
+spring:
+  # Database settings
+  datasource:
+    url: jdbc:h2:mem:monitoringdb
+    # Using an in-memory H2 database
+    # Data exists only while the app is running
+
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+    # Default H2 login (simple & zero setup)
+
+  # JPA / Hibernate behavior
+  jpa:
+    hibernate:
+      ddl-auto: update
+      # Hibernate will create/update tables automatically
+      # You don’t need to write SQL for table creation
+
+    show-sql: true
+    # Prints SQL queries in the console
+    # Helps you see what Spring is actually doing behind the scenes
+
+    properties:
+      hibernate:
+        format_sql: true
+        # Makes those SQL logs readable (not one long messy line)
+
+  # H2 browser console
+  h2:
+    console:
+      enabled: true
+      # Lets you open H2 in the browser
+
+      path: /h2-console
+      # Visit http://localhost:8080/h2-console
+      # Great for checking whether your monitoring logs are saved
+
+
+# -------------------------------
+# Actuator endpoints
+# -------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+        # health  → tells if app is UP or DOWN
+        # metrics → gives internal stats (requests, memory, etc.)
+
+
+
+
+  redis:
+    host: localhost
+    port: 6379
+    database: 0

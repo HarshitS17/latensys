@@ -1,0 +1,140 @@
+/* Global reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Page */
+body {
+    background: radial-gradient(circle at top, #0b1324, #05070d);
+    color: #e5e7eb;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Layout */
+.container {
+    max-width: 1000px;
+    margin: 30px auto;
+    padding: 20px;
+}
+
+/* Header */
+header h1 {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+header p {
+    font-size: 13px;
+    color: #9ca3af;
+    margin-top: 4px;
+}
+
+/* Grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-top: 20px;
+}
+
+/* Cards */
+.card {
+    background: linear-gradient(180deg, #0f172a, #020617);
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 14px;
+}
+
+/* Metric cards */
+.card span {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.card h2 {
+    font-size: 26px;
+    margin-top: 6px;
+}
+
+/* Chart card */
+.chart-card {
+    margin-top: 18px;
+}
+
+.chart-card h3 {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #cbd5f5;
+}
+
+/* Chart sizing */
+canvas {
+    max-height: 220px;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 30px;
+}
+
+/* Error rate colors */
+.ok {
+    color: #22c55e;   /* green */
+}
+
+.warn {
+    color: #facc15;   /* yellow */
+}
+
+.critical {
+    color: #ef4444;   /* red */
+}
+.rate-limit-card {
+    margin-top: 24px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+}
+
+.status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.status.enabled {
+    color: #6ee7b7;
+}
+
+.status .dot {
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+}
+
+.rate-limit-body {
+    margin-top: 14px;
+    font-size: 14px;
+    color: #cbd5e1;
+}
+
+.rate-limit-body div {
+    margin-bottom: 6px;
+}
+
+.rate-limit-body .blocked {
+    margin-top: 8px;
+    color: #facc15;
+    font-weight: 600;
+}
