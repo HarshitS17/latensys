@@ -2,27 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>API Monitoring Dashboard</title>
+    <title>Latensys – API Monitoring</title>
 
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- CSS -->
     <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
 <div class="container">
 
-    <!-- Header -->
-    <header>
-        <h1>Latensys
-        </h1>
-        <p>Live backend performance overview</p>
-    </header>
+    <!-- ================= HEADER ================= -->
 
-    <!-- Top Metrics -->
-    <div class="grid">
+    <div class="header">
+        <div class="brand-section">
+            <h1 class="brand">Latensys</h1>
+            <p class="subtitle">Live backend performance overview</p>
+        </div>
+
+        <div class="window-control">
+            <span class="window-label">P95 Window</span>
+            <select id="windowSelect">
+                <option value="5">Last 5 minutes</option>
+                <option value="15">Last 15 minutes</option>
+            </select>
+        </div>
+
+    </div>
+
+    <!-- ================= METRICS ================= -->
+
+    <div class="metrics-grid">
         <div class="card">
             <span>Total Requests</span>
             <h2 id="totalRequests">0</h2>
@@ -34,56 +43,56 @@
         </div>
 
         <div class="card">
-            <span>Average Response Time</span>
+            <span>Avg Response Time</span>
             <h2 id="avgResponse">0 ms</h2>
+        </div>
+
+        <div class="card">
+            <span>Blocked (429)</span>
+            <h2 id="blockedMetric">0</h2>
         </div>
     </div>
 
-    <!-- P95 Window Selector -->
-    <div class="card" style="margin-bottom:16px">
-        <label style="color:#aaa; margin-right:8px">
-            P95 Window:
-        </label>
-        <select id="windowSelect">
-            <option value="5">Last 5 minutes</option>
-            <option value="15">Last 15 minutes</option>
-        </select>
+    <!-- ================= MAIN GRID ================= -->
+
+    <div class="main-grid">
+
+        <!-- Chart -->
+        <div class="card chart-card">
+            <h3>Endpoint Performance (P95 latency)</h3>
+            <canvas id="endpointChart"></canvas>
+        </div>
+
+        <!-- Rate Limit -->
+        <div class="card">
+            <div class="card-header">
+                <span>Rate Limiting</span>
+                <span id="rateEnabled" class="status enabled">
+                    ENABLED
+                </span>
+            </div>
+
+            <div class="rate-limit-body">
+                <div>
+                    <strong>Limit:</strong>
+                    <span id="rateLimit">-</span>
+                </div>
+
+                <div class="blocked">
+                    Blocked Requests:
+                    <span id="blockedRequests">0</span>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Endpoint Chart -->
-    <div class="card chart-card">
-        <h3>Endpoint Performance (P95 latency)</h3>
-        <canvas id="endpointChart"></canvas>
-    </div>
-
-    <!-- Rate Limiting Status -->
-    <div class="card rate-limit-card">
-        <h3>Rate Limiting Status</h3>
-
-        <p>
-            <strong>Status:</strong>
-            <span id="rateEnabled">-</span>
-        </p>
-
-        <p>
-            <strong>Limit:</strong>
-            <span id="rateLimit">-</span>
-        </p>
-
-        <p>
-            <strong>Blocked Requests:</strong>
-            <span id="blockedRequests">0</span>
-        </p>
-    </div>
-
-    <!-- Footer -->
     <footer>
-        API Monitoring Platform · Spring Boot
+        API Monitoring Platform · Spring Boot · Redis
     </footer>
 
 </div>
 
-<!-- JS -->
 <script src="dashboard.js"></script>
 </body>
 </html>

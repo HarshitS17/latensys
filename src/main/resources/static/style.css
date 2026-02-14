@@ -1,140 +1,215 @@
-/* Global reset */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* Page */
 body {
     background: radial-gradient(circle at top, #0b1324, #05070d);
     color: #e5e7eb;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Layout */
 .container {
-    max-width: 1000px;
-    margin: 30px auto;
-    padding: 20px;
+    max-width: 1250px;
+    margin: 60px auto;
+    padding: 0 30px;
 }
 
-/* Header */
-header h1 {
-    font-size: 24px;
-    font-weight: 600;
+/* ================= HEADER ================= */
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-header p {
+.brand {
+    font-size: 46px;
+    font-weight: 700;
+    letter-spacing: -1px;
+}
+
+.subtitle {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #94a3b8;
+}
+
+.window-control {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.window-label {
     font-size: 13px;
-    color: #9ca3af;
-    margin-top: 4px;
+    color: #94a3b8;
 }
 
-/* Grid */
-.grid {
+.window-control select {
+    background: linear-gradient(180deg, #0f172a, #020617);
+    color: #e5e7eb;
+    border: 1px solid #1f2937;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.window-control select:hover {
+    border-color: #334155;
+}
+
+.window-control select:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+/* ================= METRICS ================= */
+
+.metrics-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-    margin-top: 20px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 22px;
+    margin-top: 50px;
 }
 
-/* Cards */
 .card {
     background: linear-gradient(180deg, #0f172a, #020617);
     border: 1px solid #1f2937;
-    border-radius: 12px;
-    padding: 14px;
+    border-radius: 16px;
+    padding: 22px;
+    transition: all 0.2s ease;
 }
 
-/* Metric cards */
+.card:hover {
+    border-color: #334155;
+    transform: translateY(-2px);
+}
+
 .card span {
     font-size: 12px;
-    color: #9ca3af;
+    color: #94a3b8;
+    text-transform: uppercase;
 }
 
 .card h2 {
-    font-size: 26px;
-    margin-top: 6px;
+    font-size: 34px;
+    margin-top: 10px;
 }
 
-/* Chart card */
-.chart-card {
-    margin-top: 18px;
+/* ================= MAIN GRID ================= */
+
+.main-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    margin-top: 50px;
 }
 
 .chart-card h3 {
-    font-size: 14px;
-    margin-bottom: 10px;
+    font-size: 15px;
+    margin-bottom: 16px;
     color: #cbd5f5;
 }
 
-/* Chart sizing */
 canvas {
-    max-height: 220px;
+    max-height: 280px;
 }
 
-/* Footer */
-footer {
-    text-align: center;
-    font-size: 11px;
-    color: #6b7280;
-    margin-top: 30px;
-}
-
-/* Error rate colors */
-.ok {
-    color: #22c55e;   /* green */
-}
-
-.warn {
-    color: #facc15;   /* yellow */
-}
-
-.critical {
-    color: #ef4444;   /* red */
-}
-.rate-limit-card {
-    margin-top: 24px;
-}
+/* ================= RATE LIMIT ================= */
 
 .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-weight: 600;
-}
-
-.status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
+    margin-bottom: 18px;
 }
 
 .status.enabled {
-    color: #6ee7b7;
+    color: #22c55e;
 }
 
-.status .dot {
-    width: 8px;
-    height: 8px;
-    background: #22c55e;
-    border-radius: 50%;
+.status.disabled {
+    color: #ef4444;
 }
 
 .rate-limit-body {
-    margin-top: 14px;
     font-size: 14px;
     color: #cbd5e1;
 }
 
-.rate-limit-body div {
-    margin-bottom: 6px;
-}
-
 .rate-limit-body .blocked {
-    margin-top: 8px;
+    margin-top: 14px;
     color: #facc15;
     font-weight: 600;
+}
+
+/* ================= FOOTER ================= */
+
+footer {
+    text-align: center;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 60px;
+}/* ================= HERO WINDOW SELECTOR ================= */
+
+.window-hero {
+    margin-top: 40px;
+}
+
+.window-title {
+    font-size: 48px;
+    font-weight: 500;
+    color: #9ca3af;
+    margin-bottom: 24px;
+}
+
+.window-box {
+    position: relative;
+    width: 420px;
+    border-radius: 22px;
+    padding: 18px 24px;
+    background: linear-gradient(
+            145deg,
+            #1c2435,
+            #0b1324
+    );
+    border: 1px solid rgba(255,255,255,0.08);
+
+    box-shadow:
+            0 10px 30px rgba(0,0,0,0.6),
+            inset 0 1px 0 rgba(255,255,255,0.06),
+            0 0 20px rgba(59,130,246,0.15);
+}
+
+.window-box select {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #e5e7eb;
+    font-size: 36px;
+    font-weight: 500;
+    width: 100%;
+    cursor: pointer;
+}
+
+.window-box select:focus {
+    outline: none;
+}
+
+.arrow {
+    position: absolute;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 16px;
+    height: 16px;
+    border-right: 3px solid #9ca3af;
+    border-bottom: 3px solid #9ca3af;
+    pointer-events: none;
 }

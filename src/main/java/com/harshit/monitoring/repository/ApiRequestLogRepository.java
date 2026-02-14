@@ -4,19 +4,26 @@ import com.harshit.monitoring.entity.ApiRequestLog;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
 /*
- Repository = DB access layer
+ Repository Layer
+ ----------------
+ Responsible for all database-level aggregation queries.
+ We keep:
+ - Global metrics (lifetime-based)
+ - Window-aware metrics (time filtered)
 */
 public interface ApiRequestLogRepository
         extends JpaRepository<ApiRequestLog, Long> {
 
     /*
-     URI-wise aggregation:
-     uri | count | avg latency
+     URI-wise aggregation (lifetime)
+     Used earlier for non-windowed stats
     */
     @Query("""
         SELECT l.uri, COUNT(l), AVG(l.responseTime)
@@ -26,7 +33,7 @@ public interface ApiRequestLogRepository
     List<Object[]> getEndpointStats();
 
     /*
-     Global average latency (excluding dashboard)
+     Global average latency (excluding dashboard endpoints)
     */
     @Query("""
         SELECT AVG(l.responseTime)
@@ -36,7 +43,8 @@ public interface ApiRequestLogRepository
     Double getGlobalAverageResponseTime();
 
     /*
-     Error requests (>=400), excluding dashboard
+     Count all error requests (status >= 400)
+     Used for global error rate calculation
     */
     @Query("""
         SELECT COUNT(l)
@@ -47,7 +55,8 @@ public interface ApiRequestLogRepository
     long countErrorRequests();
 
     /*
-     Total non-dashboard requests
+     Count all non-dashboard requests
+     Used for global request count
     */
     @Query("""
         SELECT COUNT(l)
@@ -57,7 +66,7 @@ public interface ApiRequestLogRepository
     long countNonMonitorRequests();
 
     /*
-     Distinct API URIs
+     Distinct URIs (lifetime-based)
     */
     @Query("""
         SELECT DISTINCT l.uri
@@ -73,5 +82,55 @@ public interface ApiRequestLogRepository
         FROM ApiRequestLog l
         WHERE l.uri = :uri
     """)
-    Double getAverageResponseTimeByUri(String uri);
+    Double getAverageResponseTimeByUri(@Param("uri") String uri);
+
+
+    /* =======================================================
+       WINDOW-AWARE METHODS (NEW ADDITION)
+       These enable 5min / 15min filtering from DB
+       ======================================================= */
+
+    /*
+     Get distinct URIs only within selected time window
+     Example:
+       SELECT DISTINCT uri
+       WHERE timestamp >= now - 5min
+    */
+    @Query("""
+        SELECT DISTINCT l.uri
+        FROM ApiRequestLog l
+        WHERE l.uri NOT LIKE '/monitor%'
+          AND l.timestamp >= :cutoff
+    """)
+    Set<String> findDistinctUrisAfter(
+            @Param("cutoff") LocalDateTime cutoff
+    );
+
+    /*
+     Count requests per URI within window
+    */
+    @Query("""
+        SELECT COUNT(l)
+        FROM ApiRequestLog l
+        WHERE l.uri = :uri
+          AND l.timestamp >= :cutoff
+    """)
+    long countByUriAfter(
+            @Param("uri") String uri,
+            @Param("cutoff") LocalDateTime cutoff
+    );
+
+    /*
+     Average latency per URI within window
+    */
+    @Query("""
+        SELECT AVG(l.responseTime)
+        FROM ApiRequestLog l
+        WHERE l.uri = :uri
+          AND l.timestamp >= :cutoff
+    """)
+    Double getAverageResponseTimeByUriAfter(
+            @Param("uri") String uri,
+            @Param("cutoff") LocalDateTime cutoff
+    );
 }
