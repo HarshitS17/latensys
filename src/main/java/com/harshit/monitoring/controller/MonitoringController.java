@@ -46,4 +46,13 @@ public class MonitoringController {
     ) {
         return service.getEndpointStats(window);
     }
+
+    @GetMapping("/monitor/rpm")
+    public List<Long> getRPMTrend() {
+        return service.getLast15MinuteRPM();    }
+
+    @GetMapping("/monitor/blocked-trend")
+    public List<Long> getBlockedTrend() {
+        return service.getLast15MinuteBlocked();
+    }
 }

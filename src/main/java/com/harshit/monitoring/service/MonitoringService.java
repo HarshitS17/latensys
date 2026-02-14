@@ -25,11 +25,14 @@ public class MonitoringService {
 
     private final ApiRequestLogRepository repository;
     private final StringRedisTemplate redis;
+    private final AlertService alertService;
 
     public MonitoringService(ApiRequestLogRepository repository,
-                             StringRedisTemplate redis) {
+                             StringRedisTemplate redis,
+                             AlertService alertService) {
         this.repository = repository;
         this.redis = redis;
+        this.alertService = alertService;
     }
 
     /* ================= GLOBAL METRICS ================= */
@@ -50,7 +53,14 @@ public class MonitoringService {
 
         long errors = repository.countErrorRequests();
 
-        return (errors * 100.0) / total;
+        double rate = (errors * 100.0) / total;
+
+        // Alert if error rate is too high
+        if (rate > 10) {
+            alertService.alertHighErrorRate(rate);
+        }
+
+        return rate;
     }
 
     /* ======================================================
@@ -83,6 +93,11 @@ public class MonitoringService {
 
             // Redis-based P95 within same window
             double p95 = getP95Latency(uri, windowMinutes);
+
+            // Alert if P95 latency is too high (> 1000ms)
+            if (p95 > 1000) {
+                alertService.alertSlowEndpoint(uri, p95);
+            }
 
             result.add(new EndpointStatsDTO(
                     uri,
@@ -120,5 +135,64 @@ public class MonitoringService {
         String latencyValue = values.iterator().next();
 
         return Double.parseDouble(latencyValue);
+    }
+
+
+    public List<Long> getLast15MinuteRPM() {
+
+        List<Long> result = new ArrayList<>();
+
+        long currentMinute = System.currentTimeMillis() / 60000;
+
+        for (int i = 14; i >= 0; i--) {
+
+            long minute = currentMinute - i;
+            String key = "metrics:rpm:" + minute;
+
+            String value = redis.opsForValue().get(key);
+
+            if (value == null) {
+                result.add(0L);
+            } else {
+                long rpm = Long.parseLong(value);
+                result.add(rpm);
+
+                // Alert if traffic is unusually high
+                if (rpm > 1000) {
+                    alertService.alertHighTraffic(rpm);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    public List<Long> getLast15MinuteBlocked() {
+
+        List<Long> result = new ArrayList<>();
+
+        long currentMinute = System.currentTimeMillis() / 60000;
+
+        for (int i = 14; i >= 0; i--) {
+
+            long minute = currentMinute - i;
+            String key = "metrics:blocked:" + minute;
+
+            String value = redis.opsForValue().get(key);
+
+            if (value == null) {
+                result.add(0L);
+            } else {
+                long blocked = Long.parseLong(value);
+                result.add(blocked);
+
+                // Alert if many requests are being blocked
+                if (blocked > 50) {
+                    alertService.alertRateLimitingActive(blocked);
+                }
+            }
+        }
+
+        return result;
     }
 }

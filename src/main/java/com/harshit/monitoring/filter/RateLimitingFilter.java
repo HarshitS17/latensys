@@ -1,36 +1,35 @@
 package com.harshit.monitoring.filter;
 
-import jakarta.servlet.FilterChain; // used for  passing request to next filterChain
+import jakarta.servlet.FilterChain;              // Pass request to next filter/controller
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest; // incoming req.  k liye
-import jakarta.servlet.http.HttpServletResponse; // outgoing request k liye
+import jakarta.servlet.http.HttpServletRequest;  // Incoming HTTP request
+import jakarta.servlet.http.HttpServletResponse; // Outgoing HTTP response
 
-import org.springframework.data.redis.core.StringRedisTemplate;// Redis template for interacting with Redis using String keys/values
-import org.springframework.stereotype.Component; // to mark this as a spring manages component
-import org.springframework.web.filter.OncePerRequestFilter; //ensures filter runs only once per request
+import org.springframework.data.redis.core.StringRedisTemplate; // Redis operations
+import org.springframework.stereotype.Component;                // Spring-managed bean
+import org.springframework.web.filter.OncePerRequestFilter;     // Run filter once per request
 
 import java.io.IOException;
-import java.time.Duration; //Used to set TTL
-// map to store endpoint wise rate limit rules
+import java.time.Duration; // Used for TTL
 import java.util.HashMap;
 import java.util.Map;
 
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
-    //redis client used to store and update rate-limit counters
+
+    // Redis client for rate limiting
     private final StringRedisTemplate redis;
 
-    // Constructor injection
     public RateLimitingFilter(StringRedisTemplate redis) {
         this.redis = redis;
     }
 
     /* ------------ RATE LIMIT CONFIG ------------ */
 
-    // Rule definition
+    // Defines rule: max requests + time window
     private static class RateLimitRule {
-        int maxRequests;
-        int windowSeconds;
+        int maxRequests;     // max allowed requests
+        int windowSeconds;   // time window (seconds)
 
         RateLimitRule(int maxRequests, int windowSeconds) {
             this.maxRequests = maxRequests;
@@ -38,7 +37,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         }
     }
 
-    // Endpoint-specific rules
+    // Custom rules per endpoint
     private static final Map<String, RateLimitRule> RULES = new HashMap<>();
 
     static {
@@ -46,7 +45,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         RULES.put("/redis/test", new RateLimitRule(3, 60));
     }
 
-    // Default rule
+    // Default rule for other endpoints
     private static final RateLimitRule DEFAULT_RULE =
             new RateLimitRule(50, 60);
 
@@ -57,50 +56,68 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // skip monitoring and actuator endpoints
+        // Get requested API path
         String uri = request.getRequestURI();
-        if (uri.startsWith("/monitor/") || uri.startsWith("/actuator")) {
+
+        // Skip monitoring & actuator endpoints
+        if (uri.startsWith("/monitor") || uri.startsWith("/actuator")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // identify client by IP
+        // Identify client by IP
         String ip = request.getRemoteAddr();
 
-        // Get rule for endpoint
+        // Select rule for endpoint
         RateLimitRule rule = RULES.getOrDefault(uri, DEFAULT_RULE);
 
-        //redis key format
+        // Redis key format: rate:<ip>:<uri>
         String redisKey = "rate:" + ip + ":" + uri;
 
-        // incrementing request count automatically
-        Long count = redis.opsForValue().increment(redisKey);
+        // Current time in milliseconds
+        long now = System.currentTimeMillis();
 
-        //if it is the first request : set TTL => Time TO Live
-        if (count != null && count == 1) {
-            redis.expire(redisKey, Duration.ofSeconds(rule.windowSeconds));
-        }
+        // Calculate start of sliding window
+        long windowStart = now - (rule.windowSeconds * 1000L);
 
-        // block if the limit is crossed
-        if (count != null && count > rule.maxRequests) {
+        // Remove old requests outside current window
+        redis.opsForZSet().removeRangeByScore(redisKey, 0, windowStart);
 
-            // increment global blocked request counter
+        //  Count requests still inside window
+        Long currentCount = redis.opsForZSet().zCard(redisKey);
+
+        // If limit exceeded → block request
+        if (currentCount != null && currentCount >= rule.maxRequests) {
+
+            // Track total blocked requests
             redis.opsForValue().increment("rate:limit:blocked");
 
-            response.setStatus(429); // too many requests
+            response.setStatus(429); // Too Many Requests
             response.getWriter().println("Too many requests!");
             return;
         }
 
+        //  Add current request timestamp to sorted set
+        redis.opsForZSet().add(redisKey, String.valueOf(now), now);
 
+        // Optional TTL (cleanup inactive keys)
+        redis.expire(redisKey, Duration.ofSeconds(rule.windowSeconds));
 
-        // allow request
+        // Allow request to continue
         filterChain.doFilter(request, response);
+
+        //------ blocked requests are tracked per minute.------
+        long currentMinute = now / 60000;
+
+        String blockedKey = "metrics:blocked:" + currentMinute;
+
+        redis.opsForValue().increment(blockedKey);
+        redis.expire(blockedKey, Duration.ofMinutes(20));
+
     }
 
-    //Run this filter EVEN for error / 429 responses
     @Override
     protected boolean shouldNotFilterErrorDispatch() {
-        return false;
+        return false; // Apply filter even on error dispatch
     }
 }

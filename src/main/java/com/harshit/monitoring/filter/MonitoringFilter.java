@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Duration;
 
 /*
  This filter runs for EVERY incoming HTTP request.
@@ -87,6 +88,15 @@ public class MonitoringFilter extends OncePerRequestFilter {
                 "latency:" + uri + ":15m",
                 0, now - (15 * 60 * 1000)
         );
+
+
+        // --------- RPM Tracking ---------
+        long currentMinute = now / 60000;
+
+        String rpmKey = "metrics:rpm:" + currentMinute;
+
+        redis.opsForValue().increment(rpmKey);
+        redis.expire(rpmKey, Duration.ofMinutes(20));
     }
 
     @Override
