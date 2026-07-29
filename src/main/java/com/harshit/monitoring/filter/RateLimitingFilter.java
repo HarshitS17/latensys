@@ -1,5 +1,7 @@
 package com.harshit.monitoring.filter;
 
+import com.harshit.monitoring.config.RateLimitConfig;
+
 import jakarta.servlet.FilterChain;              // Pass request to next filter/controller
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;  // Incoming HTTP request
@@ -20,8 +22,12 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     // Redis client for rate limiting
     private final StringRedisTemplate redis;
 
-    public RateLimitingFilter(StringRedisTemplate redis) {
+    // Shared rate-limit configuration (driven from application.yml)
+    private final RateLimitConfig rateLimitConfig;
+
+    public RateLimitingFilter(StringRedisTemplate redis, RateLimitConfig rateLimitConfig) {
         this.redis = redis;
+        this.rateLimitConfig = rateLimitConfig;
     }
 
     /* ------------ RATE LIMIT CONFIG ------------ */
@@ -45,9 +51,14 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         RULES.put("/redis/test", new RateLimitRule(3, 60));
     }
 
-    // Default rule for other endpoints
-    private static final RateLimitRule DEFAULT_RULE =
-            new RateLimitRule(50, 60);
+    // Default rule for other endpoints — values come from RateLimitConfig (application.yml)
+    // ✅ FIX: was hardcoded to 50 here but 30 in RateLimitController — now both use the same bean
+    private RateLimitRule getDefaultRule() {
+        return new RateLimitRule(
+                rateLimitConfig.getDefaultMaxRequests(),
+                rateLimitConfig.getDefaultWindowSeconds()
+        );
+    }
 
     @Override
     protected void doFilterInternal(
@@ -69,7 +80,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         String ip = request.getRemoteAddr();
 
         // Select rule for endpoint
-        RateLimitRule rule = RULES.getOrDefault(uri, DEFAULT_RULE);
+        RateLimitRule rule = RULES.getOrDefault(uri, getDefaultRule());
 
         // Redis key format: rate:<ip>:<uri>
         String redisKey = "rate:" + ip + ":" + uri;
@@ -92,6 +103,14 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             // Track total blocked requests
             redis.opsForValue().increment("rate:limit:blocked");
 
+            // ✅ FIX: Track blocked requests per minute HERE (before early return)
+            //    Previously this was after filterChain.doFilter(), so it only
+            //    counted ALLOWED requests — blocked ones returned before reaching it.
+            long currentMinute = now / 60000;
+            String blockedKey = "metrics:blocked:" + currentMinute;
+            redis.opsForValue().increment(blockedKey);
+            redis.expire(blockedKey, Duration.ofMinutes(20));
+
             response.setStatus(429); // Too Many Requests
             response.getWriter().println("Too many requests!");
             return;
@@ -105,14 +124,6 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
         // Allow request to continue
         filterChain.doFilter(request, response);
-
-        //------ blocked requests are tracked per minute.------
-        long currentMinute = now / 60000;
-
-        String blockedKey = "metrics:blocked:" + currentMinute;
-
-        redis.opsForValue().increment(blockedKey);
-        redis.expire(blockedKey, Duration.ofMinutes(20));
 
     }
 

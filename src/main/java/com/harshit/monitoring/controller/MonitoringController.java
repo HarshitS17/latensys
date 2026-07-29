@@ -55,4 +55,6 @@ public class MonitoringController {
     public List<Long> getBlockedTrend() {
         return service.getLast15MinuteBlocked();
     }
+
+
 }

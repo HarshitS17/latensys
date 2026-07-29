@@ -29,9 +29,9 @@
 
     </div>
 
-    <!-- ================= METRICS ================= -->
+    <!-- ================= METRICS (3 CARDS - NO DUPLICATE) ================= -->
 
-    <div class="metrics-grid">
+    <div class="metrics-grid-three">
         <div class="card">
             <span>Total Requests</span>
             <h2 id="totalRequests">0</h2>
@@ -46,11 +46,6 @@
             <span>Avg Response Time</span>
             <h2 id="avgResponse">0 ms</h2>
         </div>
-
-        <div class="card">
-            <span>Blocked (429)</span>
-            <h2 id="blockedMetric">0</h2>
-        </div>
     </div>
 
     <!-- ================= MAIN GRID ================= -->
@@ -63,8 +58,8 @@
             <canvas id="endpointChart"></canvas>
         </div>
 
-        <!-- Rate Limit -->
-        <div class="card">
+        <!-- Enhanced Rate Limit Card -->
+        <div class="card rate-limit-enhanced">
             <div class="card-header">
                 <span>Rate Limiting</span>
                 <span id="rateEnabled" class="status enabled">
@@ -72,17 +67,56 @@
                 </span>
             </div>
 
-            <div class="rate-limit-body">
-                <div>
-                    <strong>Limit:</strong>
-                    <span id="rateLimit">-</span>
+            <div class="rate-limit-body-enhanced">
+                <!-- Limit Info -->
+                <div class="rate-info-box">
+                    <div class="info-label">Current Limit</div>
+                    <div class="info-value" id="rateLimit">30 requests / 60s</div>
                 </div>
 
-                <div class="blocked">
-                    Blocked Requests:
-                    <span id="blockedRequests">0</span>
+                <!-- Blocked Count (Prominent) -->
+                <div class="blocked-box">
+                    <div class="blocked-label">Blocked Requests</div>
+                    <div class="blocked-number" id="blockedRequests">393</div>
+                    <div class="blocked-percentage" id="blockPercentage">72.3% of traffic</div>
+                </div>
+
+                <!-- Mini Sparkline -->
+                <div class="rate-sparkline-container">
+                    <div class="sparkline-label">Last 15 min trend</div>
+                    <canvas id="blockedSparkline"></canvas>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="rate-quick-stats">
+                    <div class="quick-stat">
+                        <span class="quick-stat-value" id="currentRPS">0</span>
+                        <span class="quick-stat-label">req/sec</span>
+                    </div>
+                    <div class="quick-stat">
+                        <span class="quick-stat-value" id="blockedLastMin">0</span>
+                        <span class="quick-stat-label">blocked/min</span>
+                    </div>
                 </div>
             </div>
+        </div>
+
+    </div>
+
+    <!-- ================= TREND CHARTS ================= -->
+
+    <div class="trends-grid">
+
+        <!-- RPM Chart -->
+        <div class="card chart-card">
+            <h3>Requests Per Minute (Last 15 min)</h3>
+            <canvas id="rpmChart"></canvas>
+        </div>
+
+        <!-- Blocked Requests Chart -->
+        <div class="card chart-card">
+            <h3>Blocked Requests (Last 15 min)</h3>
+            <canvas id="blockedChart"></canvas>
         </div>
 
     </div>

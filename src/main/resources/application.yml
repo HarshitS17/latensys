@@ -1,0 +1,71 @@
+# ============================================
+# Latensys - Application Configuration
+# With Alerting System
+# ============================================
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: latensys
+
+  # PostgreSQL Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/latensys
+    username: latensys_user
+    password: latensys_secure_password_2024
+    driver-class-name: org.postgresql.Driver
+
+    # HikariCP Connection Pool Settings
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # JPA / Hibernate Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  # Redis Configuration
+redis:
+  host: localhost
+  port: 6379
+  database: 0
+
+# Spring Boot Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+
+# ============================================
+# ✅ NEW: Alert Configuration
+# ============================================
+alerts:
+  # Enable/disable all alerts
+  enabled: true
+
+  # Slack webhook (optional)
+  # Get from: https://api.slack.com/messaging/webhooks
+  slack:
+    webhook:${SLACK_WEBHOOK_URL}
+    # Example: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+# ============================================
+# ✅ Rate Limit Configuration
+# Both RateLimitingFilter and RateLimitController read from here.
+# Changing these values updates enforcement AND the dashboard display.
+# ============================================
+rate-limit:
+  default-max-requests: 50
+  default-window-seconds: 60
