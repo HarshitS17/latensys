@@ -103,6 +103,4 @@ Latensys is useful when you want to:
 
 Contributions are welcome. Feel free to open an issue or submit a pull request with improvements.
 
-## License
 
-Add a license file if you want the project to be open source under a clear license.
