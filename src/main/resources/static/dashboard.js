@@ -24,7 +24,11 @@ async function safeFetch(url) {
 
 async function loadGlobalMetrics() {
     const data = await safeFetch("/monitor/metrics");
-    if (!data) return;
+    if (!data) {
+        document.getElementById("totalRequests").innerText = "Unavailable";
+        document.getElementById("avgResponse").innerText = "Unavailable";
+        return;
+    }
 
     document.getElementById("totalRequests").innerText =
         data.totalRequests;
@@ -38,7 +42,10 @@ async function loadGlobalMetrics() {
 
 async function loadErrorRate() {
     const data = await safeFetch("/monitor/errors");
-    if (!data) return;
+    if (!data) {
+        document.getElementById("errorRate").innerText = "Unavailable";
+        return;
+    }
 
     // ✅ Number() guard ensures toFixed() works even if server returns a string
     const rate = Number(data.errorRate).toFixed(2);
@@ -56,7 +63,16 @@ async function loadErrorRate() {
 
 async function loadRateLimitStats() {
     const data = await safeFetch("/monitor/rate-limit");
-    if (!data) return;
+    if (!data) {
+        document.getElementById("rateEnabled").innerText = "UNAVAILABLE";
+        document.getElementById("rateEnabled").className = "status disabled";
+        document.getElementById("rateLimit").innerText = "Unavailable";
+        document.getElementById("blockedRequests").innerText = "Unavailable";
+        document.getElementById("blockPercentage").innerText = "Unavailable";
+        document.getElementById("currentRPS").innerText = "Unavailable";
+        document.getElementById("blockedLastMin").innerText = "Unavailable";
+        return;
+    }
 
     const statusEl = document.getElementById("rateEnabled");
 
@@ -73,10 +89,7 @@ async function loadRateLimitStats() {
     document.getElementById("blockedRequests").innerText = blocked;
 
     // Calculate block percentage
-    const totalRequests = await getTotalRequests();
-    const blockPercentage = totalRequests > 0
-        ? ((blocked / totalRequests) * 100).toFixed(1)
-        : 0;
+    const blockPercentage = Number(data.blockPercentage).toFixed(1);
 
     const percentEl = document.getElementById("blockPercentage");
     if (percentEl) {
@@ -88,9 +101,11 @@ async function loadRateLimitStats() {
     if (rpsEl) {
         const rpmData = await safeFetch("/monitor/rpm");
         if (rpmData && rpmData.length > 0) {
-            const lastMinute = rpmData[rpmData.length - 1];
-            const rps = Math.round(lastMinute / 60);
+            const lastCompletedMinute = rpmData[rpmData.length - 2];
+            const rps = Math.round(lastCompletedMinute / 60);
             rpsEl.innerText = rps;
+        } else {
+            rpsEl.innerText = "Unavailable";
         }
     }
 
@@ -100,15 +115,11 @@ async function loadRateLimitStats() {
         const blockedData = await safeFetch("/monitor/blocked-trend");
         if (blockedData && blockedData.length > 0) {
             blockedLastMinEl.innerText = blockedData[blockedData.length - 1];
+        } else {
+            blockedLastMinEl.innerText = "Unavailable";
         }
     }
 }
-
-async function getTotalRequests() {
-    const data = await safeFetch("/monitor/metrics");
-    return data ? data.totalRequests : 0;
-}
-
 
 /* ================= SPARKLINE CHART ================= */
 
@@ -234,7 +245,7 @@ async function loadRPMChart() {
     if (!ctx) return;
 
     const labels = Array.from({ length: data.length }, (_, i) =>
-        `${i - data.length + 1}m`
+        i === data.length - 1 ? "Now (partial)" : `${i - data.length + 1}m`
     );
 
     if (!rpmChart) {
@@ -281,7 +292,7 @@ async function loadBlockedChart() {
     if (!ctx) return;
 
     const labels = Array.from({ length: data.length }, (_, i) =>
-        `${i - data.length + 1}m`
+        i === data.length - 1 ? "Now (partial)" : `${i - data.length + 1}m`
     );
 
     if (!blockedChart) {

@@ -6,6 +6,8 @@ import com.harshit.monitoring.service.MonitoringService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -24,16 +26,28 @@ public class MonitoringController {
 
     @GetMapping("/monitor/metrics")
     public Map<String, Object> getMetrics() {
+        MonitoringService.Accounting counts = service.getAccounting();
         return Map.of(
-                "totalRequests", service.getTotalRequests(),
+                "totalRequests", counts.attempted(),
+                "attemptedRequests", counts.attempted(),
+                "allowedRequests", counts.allowed(),
+                "blockedRequests", counts.blocked(),
+                "unavailableRequests", counts.unavailable(),
+                "successfulRequests", counts.successful(),
+                "clientErrors", counts.clientErrors(),
+                "serverErrors", counts.serverErrors(),
                 "averageResponseTime", service.getAverageResponseTime()
         );
     }
 
     @GetMapping("/monitor/errors")
     public Map<String, Object> getErrorRate() {
+        MonitoringService.Accounting counts = service.getAccounting();
         return Map.of(
-                "errorRate", service.getErrorRate()
+                "errorRate", counts.errorRate(),
+                "clientErrors", counts.clientErrors(),
+                "serverErrors", counts.serverErrors(),
+                "allowedRequests", counts.allowed()
         );
     }
 
@@ -44,6 +58,9 @@ public class MonitoringController {
     public List<EndpointStatsDTO> getEndpointStats(
             @RequestParam(defaultValue = "5") int window
     ) {
+        if (window != 5 && window != 15) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Supported windows are 5 and 15 minutes");
+        }
         return service.getEndpointStats(window);
     }
 

@@ -34,17 +34,17 @@
     <div class="metrics-grid-three">
         <div class="card">
             <span>Total Requests</span>
-            <h2 id="totalRequests">0</h2>
+            <h2 id="totalRequests">Loading</h2>
         </div>
 
         <div class="card">
             <span>Error Rate</span>
-            <h2 id="errorRate">0%</h2>
+            <h2 id="errorRate">Loading</h2>
         </div>
 
         <div class="card">
             <span>Avg Response Time</span>
-            <h2 id="avgResponse">0 ms</h2>
+            <h2 id="avgResponse">Loading</h2>
         </div>
     </div>
 
@@ -62,8 +62,8 @@
         <div class="card rate-limit-enhanced">
             <div class="card-header">
                 <span>Rate Limiting</span>
-                <span id="rateEnabled" class="status enabled">
-                    ENABLED
+                <span id="rateEnabled" class="status">
+                    LOADING
                 </span>
             </div>
 
@@ -71,14 +71,14 @@
                 <!-- Limit Info -->
                 <div class="rate-info-box">
                     <div class="info-label">Current Limit</div>
-                    <div class="info-value" id="rateLimit">30 requests / 60s</div>
+                    <div class="info-value" id="rateLimit">Loading</div>
                 </div>
 
                 <!-- Blocked Count (Prominent) -->
                 <div class="blocked-box">
                     <div class="blocked-label">Blocked Requests</div>
-                    <div class="blocked-number" id="blockedRequests">393</div>
-                    <div class="blocked-percentage" id="blockPercentage">72.3% of traffic</div>
+                    <div class="blocked-number" id="blockedRequests">Loading</div>
+                    <div class="blocked-percentage" id="blockPercentage">Loading</div>
                 </div>
 
                 <!-- Mini Sparkline -->
@@ -90,12 +90,12 @@
                 <!-- Quick Stats -->
                 <div class="rate-quick-stats">
                     <div class="quick-stat">
-                        <span class="quick-stat-value" id="currentRPS">0</span>
-                        <span class="quick-stat-label">req/sec</span>
+                        <span class="quick-stat-value" id="currentRPS">Loading</span>
+                        <span class="quick-stat-label">req/sec (last full min)</span>
                     </div>
                     <div class="quick-stat">
-                        <span class="quick-stat-value" id="blockedLastMin">0</span>
-                        <span class="quick-stat-label">blocked/min</span>
+                        <span class="quick-stat-value" id="blockedLastMin">Loading</span>
+                        <span class="quick-stat-label">blocked (current min)</span>
                     </div>
                 </div>
             </div>

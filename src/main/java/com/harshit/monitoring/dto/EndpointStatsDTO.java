@@ -8,14 +8,14 @@ public class EndpointStatsDTO {
     private String uri;
     private long totalRequests;
     private double averageResponseTime;
-    private double p95Latency;
+    private Double p95Latency;
 
     // Constructor used by MonitoringService
     public EndpointStatsDTO(
             String uri,
             long totalRequests,
             double averageResponseTime,
-            double p95Latency
+            Double p95Latency
     ) {
         this.uri = uri;
         this.totalRequests = totalRequests;
@@ -35,7 +35,7 @@ public class EndpointStatsDTO {
         return averageResponseTime;
     }
 
-    public double getP95Latency() {
+    public Double getP95Latency() {
         return p95Latency;
     }
 }

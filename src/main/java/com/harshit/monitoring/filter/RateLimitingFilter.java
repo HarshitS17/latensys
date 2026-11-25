@@ -1,134 +1,76 @@
 package com.harshit.monitoring.filter;
 
 import com.harshit.monitoring.config.RateLimitConfig;
-
-import jakarta.servlet.FilterChain;              // Pass request to next filter/controller
+import com.harshit.monitoring.service.RedisRateLimiter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;  // Incoming HTTP request
-import jakarta.servlet.http.HttpServletResponse; // Outgoing HTTP response
-
-import org.springframework.data.redis.core.StringRedisTemplate; // Redis operations
-import org.springframework.stereotype.Component;                // Spring-managed bean
-import org.springframework.web.filter.OncePerRequestFilter;     // Run filter once per request
-
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.time.Duration; // Used for TTL
-import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class RateLimitingFilter extends OncePerRequestFilter {
+    private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
+    public static final String DECISION_ATTRIBUTE = RateLimitingFilter.class.getName() + ".decision";
+    private record Rule(int maxRequests, int windowSeconds) {}
+    private static final Map<String, Rule> RULES = Map.of(
+            "/test/hello", new Rule(10, 60),
+            "/redis/test", new Rule(3, 60));
 
-    // Redis client for rate limiting
-    private final StringRedisTemplate redis;
+    private final RedisRateLimiter limiter;
+    private final RateLimitConfig config;
 
-    // Shared rate-limit configuration (driven from application.yml)
-    private final RateLimitConfig rateLimitConfig;
-
-    public RateLimitingFilter(StringRedisTemplate redis, RateLimitConfig rateLimitConfig) {
-        this.redis = redis;
-        this.rateLimitConfig = rateLimitConfig;
-    }
-
-    /* ------------ RATE LIMIT CONFIG ------------ */
-
-    // Defines rule: max requests + time window
-    private static class RateLimitRule {
-        int maxRequests;     // max allowed requests
-        int windowSeconds;   // time window (seconds)
-
-        RateLimitRule(int maxRequests, int windowSeconds) {
-            this.maxRequests = maxRequests;
-            this.windowSeconds = windowSeconds;
-        }
-    }
-
-    // Custom rules per endpoint
-    private static final Map<String, RateLimitRule> RULES = new HashMap<>();
-
-    static {
-        RULES.put("/test/hello", new RateLimitRule(10, 60));
-        RULES.put("/redis/test", new RateLimitRule(3, 60));
-    }
-
-    // Default rule for other endpoints — values come from RateLimitConfig (application.yml)
-    // ✅ FIX: was hardcoded to 50 here but 30 in RateLimitController — now both use the same bean
-    private RateLimitRule getDefaultRule() {
-        return new RateLimitRule(
-                rateLimitConfig.getDefaultMaxRequests(),
-                rateLimitConfig.getDefaultWindowSeconds()
-        );
+    public RateLimitingFilter(RedisRateLimiter limiter, RateLimitConfig config) {
+        this.limiter = limiter;
+        this.config = config;
     }
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getDispatcherType() == DispatcherType.ERROR
+                || RequestPaths.isInternal(request.getRequestURI());
+    }
 
-        // Get requested API path
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
         String uri = request.getRequestURI();
-
-        // Skip monitoring & actuator endpoints
-        if (uri.startsWith("/monitor") || uri.startsWith("/actuator")) {
-            filterChain.doFilter(request, response);
+        Rule rule = RULES.getOrDefault(uri,
+                new Rule(config.getDefaultMaxRequests(), config.getDefaultWindowSeconds()));
+        RedisRateLimiter.Decision decision;
+        try {
+            decision = limiter.check(request.getRemoteAddr(), uri,
+                    rule.maxRequests(), rule.windowSeconds());
+        } catch (RuntimeException e) {
+            log.warn("Rate-limit decision unavailable ({})", e.getClass().getSimpleName());
+            request.setAttribute(DECISION_ATTRIBUTE, "UNAVAILABLE");
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"rate_limit_unavailable\"}");
             return;
         }
 
-        // Identify client by IP
-        String ip = request.getRemoteAddr();
-
-        // Select rule for endpoint
-        RateLimitRule rule = RULES.getOrDefault(uri, getDefaultRule());
-
-        // Redis key format: rate:<ip>:<uri>
-        String redisKey = "rate:" + ip + ":" + uri;
-
-        // Current time in milliseconds
-        long now = System.currentTimeMillis();
-
-        // Calculate start of sliding window
-        long windowStart = now - (rule.windowSeconds * 1000L);
-
-        // Remove old requests outside current window
-        redis.opsForZSet().removeRangeByScore(redisKey, 0, windowStart);
-
-        //  Count requests still inside window
-        Long currentCount = redis.opsForZSet().zCard(redisKey);
-
-        // If limit exceeded → block request
-        if (currentCount != null && currentCount >= rule.maxRequests) {
-
-            // Track total blocked requests
-            redis.opsForValue().increment("rate:limit:blocked");
-
-            // ✅ FIX: Track blocked requests per minute HERE (before early return)
-            //    Previously this was after filterChain.doFilter(), so it only
-            //    counted ALLOWED requests — blocked ones returned before reaching it.
-            long currentMinute = now / 60000;
-            String blockedKey = "metrics:blocked:" + currentMinute;
-            redis.opsForValue().increment(blockedKey);
-            redis.expire(blockedKey, Duration.ofMinutes(20));
-
-            response.setStatus(429); // Too Many Requests
-            response.getWriter().println("Too many requests!");
+        response.setHeader("X-RateLimit-Remaining", String.valueOf(decision.remaining()));
+        if (!decision.allowed()) {
+            request.setAttribute(DECISION_ATTRIBUTE, "BLOCKED");
+            long retrySeconds = Math.max(1, (decision.retryAfterMillis() + 999) / 1000);
+            response.setHeader("Retry-After", String.valueOf(retrySeconds));
+            response.setStatus(429);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"rate_limited\",\"retryAfterSeconds\":"
+                    + retrySeconds + "}");
             return;
         }
-
-        //  Add current request timestamp to sorted set
-        redis.opsForZSet().add(redisKey, String.valueOf(now), now);
-
-        // Optional TTL (cleanup inactive keys)
-        redis.expire(redisKey, Duration.ofSeconds(rule.windowSeconds));
-
-        // Allow request to continue
-        filterChain.doFilter(request, response);
-
-    }
-
-    @Override
-    protected boolean shouldNotFilterErrorDispatch() {
-        return false; // Apply filter even on error dispatch
+        request.setAttribute(DECISION_ATTRIBUTE, "ALLOWED");
+        chain.doFilter(request, response);
     }
 }

@@ -1,16 +1,28 @@
 # Latensys
 
-Latensys is a Spring Boot prototype that measures requests handled by **this application**. It records request counts and latency in PostgreSQL, stores short-term counters in Redis, applies per-IP rate limits, and serves a dashboard at `http://localhost:8080/`. It does not yet monitor arbitrary external services.
+Latensys is a bounded Spring Boot monitoring and rate-limiting project for requests handled by **this application**. It records request outcomes in PostgreSQL, keeps short-lived latency samples and rate-limit state in Redis, and serves a dashboard at `http://localhost:8080/`. It does not monitor arbitrary external services.
 
 ## Stack and architecture
 
 - Java 17, Spring Boot 3.4.1, Spring Web, JPA, Actuator
 - PostgreSQL for request logs and lifetime/windowed queries
-- Redis for short-term counters, latency samples, and rate-limit state
+- Redis for exact recent latency samples and atomic rate-limit state
 - Static HTML, CSS and Chart.js dashboard, polling `/monitor/*` every five seconds
 - Optional Slack and Discord webhook alerts
 
-Incoming requests pass through `RateLimitingFilter` and `MonitoringFilter`, then the controllers. `MonitoringService` reads PostgreSQL and Redis for the dashboard. Spring Boot's Redis auto-configuration reads `spring.data.redis.*`; no custom connection factory is needed. JUnit 5 and Mockito are supplied by `spring-boot-starter-test`; PostgreSQL and Redis integration tests use Testcontainers.
+Incoming requests pass through `MonitoringFilter` first, then `RateLimitingFilter`, then controllers. The outer monitor records allowed, rejected, and unavailable requests once, including thrown handler errors. `MonitoringService` reads PostgreSQL for counts and Redis for exact P95 samples. Spring Boot's Redis auto-configuration reads `spring.data.redis.*`; no custom connection factory is needed. JUnit 5 and Mockito are supplied by `spring-boot-starter-test`; PostgreSQL and Redis integration tests use Testcontainers.
+
+## Metrics and failure policy
+
+- **Attempted**: every stored request that is not a dashboard asset, `/monitor/*`, `/actuator/*`, or the error dispatch. **Allowed**, **blocked**, and **unavailable** are mutually exclusive rate-limit decisions. Blocked means HTTP 429; unavailable means rate-limit Redis could not decide and the request received HTTP 503.
+- **Successful**: allowed response below 400. **Client errors**: allowed 4xx responses. **Server errors**: allowed 5xx responses. Rejected requests are excluded from application error counts.
+- **Error rate**: `(client errors + server errors) / allowed × 100`. **Blocked percentage**: `blocked / attempted × 100`. These dashboard cards and `/monitor/rate-limit` use lifetime PostgreSQL logs for both numerator and denominator; `/monitor/metrics` and `/monitor/errors` retain their existing fields and expose extra counts. A sequence of separate aggregate reads is not a transactionally consistent snapshot during concurrent traffic.
+- **Requests per minute**: attempted requests per wall-clock minute, including 429 and rate-limit 503. Trend arrays contain fourteen completed minutes followed by the current partial minute. The `req/sec` card divides the last completed minute by 60; the blocked quick stat shows the current partial minute's count.
+- **Endpoint performance**: allowed requests only. P95 is exact nearest rank: sort numeric latency values and select `ceil(0.95 × n) - 1`. An empty sample window returns `null` in the endpoint API. Only 5 and 15 minute windows are accepted; other `/monitor/endpoints?window=` values return HTTP 400.
+
+Redis latency samples use `latency:v2:<uri>` with timestamp scores and unique latency-plus-UUID members. Writes remove samples older than 15 minutes and set a 16 minute key TTL. Reads filter by score, so stale samples never enter a result even when no new request arrives. Exact P95 costs `O(n log n)` time and `O(n)` memory per endpoint query for `n` samples in the selected window; this deliberately favors simple correctness over high-volume aggregation. Old `latency:*` and `rate:*` keys are ignored, not flushed; legacy keys without TTL may need selective cleanup later. The rate limiter uses a Lua script to remove expired entries, count active requests, insert one unique member only when allowed, set a key TTL, and return remaining quota or retry delay in one Redis round trip. It preserves the 50/60 default and the existing `/test/hello` and `/redis/test` overrides.
+
+If Redis cannot enforce a protected request, the request receives structured HTTP 503 and is not passed to the controller. If PostgreSQL request logging or Redis latency storage fails after a valid application response, that response is preserved and telemetry may be lost; the failure is logged without credentials. Dashboard reads still require PostgreSQL and, for P95, Redis. The rate limiter uses the application clock, so large clock skew across instances can affect windows; this project targets one application instance.
 
 ## Run locally
 
@@ -29,13 +41,10 @@ Run `./mvnw --batch-mode verify`. CI runs the same command on pushes and pull re
 
 ## Current limitations
 
-- P95 is currently incorrect: Redis samples are sorted by timestamp, and duplicate latency values can overwrite one another. This is scheduled for M1.
-- Rate-limit check and insert are separate Redis calls, so concurrent requests can exceed the limit; same-millisecond requests can collide. M1 will make this atomic.
-- A request that throws through the filter chain may not be recorded. Redis or PostgreSQL errors can affect the request path.
 - The dashboard, monitoring endpoints, Actuator health/metrics, and test alert endpoints have no authentication. Keep this prototype on a trusted local network; add access control before public deployment.
-- The rate limiter identifies clients by remote address, which may represent a reverse proxy. It also applies to static files and bypasses monitoring routes.
+- The rate limiter identifies clients by remote address, which may represent a reverse proxy. Dashboard and operational routes are excluded.
 - The raw request log has no retention policy or migrations; `ddl-auto: update` remains a development-only convenience. Endpoint statistics make multiple queries per URI.
-- Global metrics are lifetime totals while endpoint charts use five or fifteen minute windows. The dashboard's blocked percentage mixes counts with incompatible denominators.
+- Global cards are lifetime totals, while endpoint performance uses five or fifteen minute windows. Raw logs and Redis samples have different lifetimes; a PostgreSQL outage can cause incomplete history.
 - Alerts trigger during dashboard reads and use an in-memory cooldown. The configured thresholds are not per-service or per-endpoint rules.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone acceptance criteria and M1 regression scenarios.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone status and acceptance criteria.

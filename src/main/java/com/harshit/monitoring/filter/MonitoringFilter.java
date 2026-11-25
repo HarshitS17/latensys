@@ -2,105 +2,65 @@ package com.harshit.monitoring.filter;
 
 import com.harshit.monitoring.entity.ApiRequestLog;
 import com.harshit.monitoring.repository.ApiRequestLogRepository;
-
+import com.harshit.monitoring.service.LatencySampleStore;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import org.springframework.data.redis.core.StringRedisTemplate;
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.time.Duration;
-
-/*
- This filter runs for EVERY incoming HTTP request.
- It logs request metadata + pushes latency samples to Redis
-*/
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class MonitoringFilter extends OncePerRequestFilter {
-
+    private static final Logger log = LoggerFactory.getLogger(MonitoringFilter.class);
     private final ApiRequestLogRepository repository;
-    private final StringRedisTemplate redis;
+    private final LatencySampleStore samples;
 
-    public MonitoringFilter(ApiRequestLogRepository repository,
-                            StringRedisTemplate redis) {
+    public MonitoringFilter(ApiRequestLogRepository repository, LatencySampleStore samples) {
         this.repository = repository;
-        this.redis = redis;
+        this.samples = samples;
     }
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getDispatcherType() == DispatcherType.ERROR
+                || RequestPaths.isInternal(request.getRequestURI());
+    }
 
-        String uri = request.getRequestURI();
-
-        /*
-         Ignore dashboard + static files
-        */
-        if (
-                uri.equals("/") ||
-                        uri.startsWith("/monitor") ||
-                        uri.startsWith("/actuator") ||
-                        uri.equals("/error") ||
-                        uri.endsWith(".css") ||
-                        uri.endsWith(".js") ||
-                        uri.endsWith(".html") ||
-                        uri.startsWith("/favicon")
-        ) {
-            filterChain.doFilter(request, response);
-            return;
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
+        long start = System.nanoTime();
+        boolean completed = false;
+        try {
+            chain.doFilter(request, response);
+            completed = true;
+        } finally {
+            long latency = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+            int status = !completed && response.getStatus() < 400 ? 500 : response.getStatus();
+            String decision = (String) request.getAttribute(RateLimitingFilter.DECISION_ATTRIBUTE);
+            if (decision == null) decision = "ALLOWED";
+            try {
+                repository.save(new ApiRequestLog(request.getMethod(), request.getRequestURI(),
+                        status, latency, decision));
+            } catch (RuntimeException e) {
+                log.warn("PostgreSQL monitoring write failed ({})", e.getClass().getSimpleName());
+            }
+            if ("ALLOWED".equals(decision)) {
+                try {
+                    samples.record(request.getRequestURI(), latency);
+                } catch (RuntimeException e) {
+                    log.warn("Redis latency write failed ({})", e.getClass().getSimpleName());
+                }
+            }
         }
-
-        long start = System.currentTimeMillis();
-
-        filterChain.doFilter(request, response);
-
-        long end = System.currentTimeMillis();
-        long latency = end - start;
-
-        // ---------- DB LOG ----------
-        repository.save(new ApiRequestLog(
-                request.getMethod(),
-                uri,
-                response.getStatus(),
-                latency
-        ));
-
-        // ---------- REDIS (P95 windows) ----------
-        long now = System.currentTimeMillis();
-
-        redis.opsForZSet().add("latency:" + uri + ":5m",  String.valueOf(latency), now);
-        redis.opsForZSet().add("latency:" + uri + ":15m", String.valueOf(latency), now);
-
-        // cleanup old samples
-        redis.opsForZSet().removeRangeByScore(
-                "latency:" + uri + ":5m",
-                0, now - (5 * 60 * 1000)
-        );
-
-        redis.opsForZSet().removeRangeByScore(
-                "latency:" + uri + ":15m",
-                0, now - (15 * 60 * 1000)
-        );
-
-
-        // --------- RPM Tracking ---------
-        long currentMinute = now / 60000;
-
-        String rpmKey = "metrics:rpm:" + currentMinute;
-
-        redis.opsForValue().increment(rpmKey);
-        redis.expire(rpmKey, Duration.ofMinutes(20));
-    }
-
-    @Override
-    protected boolean shouldNotFilterErrorDispatch() {
-        return false;
     }
 }

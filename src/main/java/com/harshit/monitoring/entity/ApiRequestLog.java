@@ -16,18 +16,25 @@ public class ApiRequestLog {
     private int status;
     private long responseTime;
     private LocalDateTime timestamp;
+    private String decision;
 
     protected ApiRequestLog() {}
 
     public ApiRequestLog(String method, String uri, int status, long responseTime) {
+        this(method, uri, status, responseTime, "ALLOWED");
+    }
+
+    public ApiRequestLog(String method, String uri, int status, long responseTime, String decision) {
         this.method = method;
         this.uri = uri;
         this.status = status;
         this.responseTime = responseTime;
         this.timestamp = LocalDateTime.now();
+        this.decision = decision;
     }
 
     public String getUri() { return uri; }
     public int getStatus() { return status; }
     public long getResponseTime() { return responseTime; }
+    public String getDecision() { return decision; }
 }

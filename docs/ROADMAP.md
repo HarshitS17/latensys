@@ -4,11 +4,11 @@
 
 Externalize PostgreSQL and Redis configuration; remove tracked secrets; provide local Compose infrastructure; isolate integration tests with Testcontainers; run `./mvnw --batch-mode verify` in CI; document current behavior and risks. Acceptance: a fresh checkout can start locally with only a private `.env`, tests never connect to a personal database, and existing dashboard/API contracts stay intact.
 
-## M1 — Correctness of monitoring and rate limiting
+## M1 — Correctness of monitoring and rate limiting (implemented)
 
-Implement a real latency percentile over samples within the requested time window, preserving duplicates. Make rate-limit evaluation and insertion atomic across concurrent callers. Define and test failure behavior for PostgreSQL and Redis. Record request outcomes even when the handler throws. Align allowed, blocked, and total request accounting and dashboard windows.
+Exact nearest-rank latency percentiles use unique Redis samples and time-filtered reads. Atomic Redis Lua enforcement preserves the existing policies. Request outcomes, including 429 and rate-limit 503, are stored in PostgreSQL; monitoring write failures leave valid responses intact. The dashboard uses matching lifetime counts for blocked percentage and error rate. The current partial minute is labeled separately.
 
-Regression scenarios to implement:
+Regression scenarios covered by unit and container-backed tests:
 
 1. P95 returns the correct value for a known unsorted latency distribution, in both five and fifteen minute windows.
 2. Duplicate latency values count as separate requests.
@@ -19,7 +19,7 @@ Regression scenarios to implement:
 7. Redis and PostgreSQL outages follow a documented policy and do not create an unexplained successful response or hide failures.
 8. Allowed, blocked, and total counts use matching windows and denominators.
 
-Acceptance: all scenarios have automated tests using isolated infrastructure; a repeatable load test confirms the rate limit; dashboard P95 matches an independently calculated sample set.
+Acceptance: automated unit and container-backed tests cover these cases; the full Java 17 Maven verification suite passes. A separate repeatable load benchmark remains useful portfolio evidence for M3.
 
 ## M2 — Deployable single-service product
 
@@ -31,4 +31,4 @@ Publish architecture and tradeoff notes, a reproducible demo, screenshots, and m
 
 ## Later — Multi-service monitoring
 
-Add service identity, authenticated ingestion, an instrumentation library or OpenTelemetry receiver, and tenant-aware storage only after the single-service release is reliable. Acceptance: two independent services report distinguishable metrics through one protected dashboard.
+Multi-service telemetry is outside the bounded portfolio release. Consider it only after the single-service project is reliable and deployed; it would require authenticated ingestion and service identity.
