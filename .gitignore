@@ -31,3 +31,22 @@ build/
 
 ### VS Code ###
 .vscode/
+.DS_Store
+**/.DS_Store
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local.yml
+*.local.yaml
+*.local.properties
+*.pem
+*.key
+
+# Logs and generated files
+*.log
+logs/
+*.pid
+.coverage/
+coverage/
