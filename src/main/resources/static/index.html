@@ -26,6 +26,10 @@
                 <option value="15">Last 15 minutes</option>
             </select>
         </div>
+        <form id="logoutForm" method="post" action="/logout">
+            <input type="hidden" name="_csrf" id="logoutCsrf">
+            <button type="submit" class="logout-button">Sign out</button>
+        </form>
 
     </div>
 
@@ -33,17 +37,18 @@
 
     <div class="metrics-grid-three">
         <div class="card">
-            <span>Total Requests</span>
+            <span>Requests (retained)</span>
             <h2 id="totalRequests">Loading</h2>
         </div>
 
         <div class="card">
-            <span>Error Rate</span>
+            <span>Error Rate (retained)</span>
             <h2 id="errorRate">Loading</h2>
+            <small id="errorBreakdown">Loading</small>
         </div>
 
         <div class="card">
-            <span>Avg Response Time</span>
+            <span>Avg Response Time (retained)</span>
             <h2 id="avgResponse">Loading</h2>
         </div>
     </div>
@@ -72,11 +77,12 @@
                 <div class="rate-info-box">
                     <div class="info-label">Current Limit</div>
                     <div class="info-value" id="rateLimit">Loading</div>
+                    <div id="policyList" class="policy-list">Loading policies</div>
                 </div>
 
                 <!-- Blocked Count (Prominent) -->
                 <div class="blocked-box">
-                    <div class="blocked-label">Blocked Requests</div>
+                    <div class="blocked-label">Blocked Requests (retained)</div>
                     <div class="blocked-number" id="blockedRequests">Loading</div>
                     <div class="blocked-percentage" id="blockPercentage">Loading</div>
                 </div>

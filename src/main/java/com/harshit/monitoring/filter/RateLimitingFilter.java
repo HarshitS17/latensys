@@ -1,6 +1,7 @@
 package com.harshit.monitoring.filter;
 
 import com.harshit.monitoring.config.RateLimitConfig;
+import com.harshit.monitoring.config.AppProxyConfig;
 import com.harshit.monitoring.service.RedisRateLimiter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.DispatcherType;
@@ -8,12 +9,12 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
@@ -21,17 +22,20 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class RateLimitingFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
     public static final String DECISION_ATTRIBUTE = RateLimitingFilter.class.getName() + ".decision";
-    private record Rule(int maxRequests, int windowSeconds) {}
-    private static final Map<String, Rule> RULES = Map.of(
-            "/test/hello", new Rule(10, 60),
-            "/redis/test", new Rule(3, 60));
 
     private final RedisRateLimiter limiter;
     private final RateLimitConfig config;
+    private final AppProxyConfig appProxy;
 
     public RateLimitingFilter(RedisRateLimiter limiter, RateLimitConfig config) {
+        this(limiter, config, null);
+    }
+
+    @Autowired
+    public RateLimitingFilter(RedisRateLimiter limiter, RateLimitConfig config, AppProxyConfig appProxy) {
         this.limiter = limiter;
         this.config = config;
+        this.appProxy = appProxy;
     }
 
     @Override
@@ -43,13 +47,13 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        String uri = request.getRequestURI();
-        Rule rule = RULES.getOrDefault(uri,
-                new Rule(config.getDefaultMaxRequests(), config.getDefaultWindowSeconds()));
+        String uri = RequestPaths.metricPath(request.getRequestURI(),
+                appProxy == null ? java.util.List.of() : appProxy.getAllowedPaths());
+        RateLimitConfig.Policy rule = config.resolve(uri);
         RedisRateLimiter.Decision decision;
         try {
             decision = limiter.check(request.getRemoteAddr(), uri,
-                    rule.maxRequests(), rule.windowSeconds());
+                    rule.getMaxRequests(), rule.getWindowSeconds());
         } catch (RuntimeException e) {
             log.warn("Rate-limit decision unavailable ({})", e.getClass().getSimpleName());
             request.setAttribute(DECISION_ATTRIBUTE, "UNAVAILABLE");

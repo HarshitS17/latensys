@@ -5,6 +5,13 @@
 
 server:
   port: 8080
+  forward-headers-strategy: none
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
 
 spring:
   application:
@@ -28,12 +35,9 @@ spring:
   # JPA / Hibernate Configuration
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+    open-in-view: false
     show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
 
   data:
     redis:
@@ -41,6 +45,8 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
+      timeout: ${REDIS_TIMEOUT:2s}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
 
 # Spring Boot Actuator
 management:
@@ -48,13 +54,20 @@ management:
     web:
       exposure:
         include: health,metrics
+  endpoint:
+    health:
+      show-details: never
 
 # ============================================
 # ✅ NEW: Alert Configuration
 # ============================================
 alerts:
   # Enable/disable all alerts
-  enabled: true
+  enabled: ${ALERTS_ENABLED:true}
+  evaluation-delay-ms: ${ALERT_EVALUATION_DELAY_MS:60000}
+  min-requests: ${ALERT_MIN_REQUESTS:20}
+  connect-timeout-ms: ${ALERT_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${ALERT_READ_TIMEOUT_MS:2000}
 
   # Slack webhook (optional)
   # Get from: https://api.slack.com/messaging/webhooks
@@ -70,5 +83,35 @@ alerts:
 # Changing these values updates enforcement AND the dashboard display.
 # ============================================
 rate-limit:
-  default-max-requests: 50
-  default-window-seconds: 60
+  default-max-requests: ${RATE_LIMIT_DEFAULT_MAX_REQUESTS:50}
+  default-window-seconds: ${RATE_LIMIT_DEFAULT_WINDOW_SECONDS:60}
+  overrides:
+    "[/test/hello]":
+      max-requests: ${RATE_LIMIT_HELLO_MAX_REQUESTS:10}
+      window-seconds: ${RATE_LIMIT_HELLO_WINDOW_SECONDS:60}
+    "[/redis/test]":
+      max-requests: ${RATE_LIMIT_REDIS_MAX_REQUESTS:3}
+      window-seconds: ${RATE_LIMIT_REDIS_WINDOW_SECONDS:60}
+    "[/app/hello]":
+      max-requests: ${RATE_LIMIT_APP_HELLO_MAX_REQUESTS:5}
+      window-seconds: ${RATE_LIMIT_APP_HELLO_WINDOW_SECONDS:60}
+
+security:
+  admin:
+    username: ${ADMIN_USERNAME}
+    password-hash: ${ADMIN_PASSWORD_HASH}
+
+app:
+  upstream-url: ${APP_UPSTREAM_URL:http://127.0.0.1:8081}
+  connect-timeout: ${APP_CONNECT_TIMEOUT:2s}
+  request-timeout: ${APP_REQUEST_TIMEOUT:5s}
+  max-request-bytes: ${APP_MAX_REQUEST_BYTES:65536}
+  max-response-bytes: ${APP_MAX_RESPONSE_BYTES:1048576}
+  allowed-paths: ${APP_ALLOWED_PATHS:/hello,/fail,/echo,/stats,/slow}
+
+retention:
+  enabled: ${RETENTION_ENABLED:true}
+  days: ${RETENTION_DAYS:30}
+  batch-size: ${RETENTION_BATCH_SIZE:5000}
+  max-batches: ${RETENTION_MAX_BATCHES:10}
+  cleanup-delay-ms: ${RETENTION_CLEANUP_DELAY_MS:3600000}

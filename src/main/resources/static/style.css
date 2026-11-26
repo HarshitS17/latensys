@@ -118,6 +118,7 @@ body {
 
 canvas {
     max-height: 280px;
+    max-width: 100%;
 }
 
 /* ================= ENHANCED RATE LIMIT CARD ================= */
@@ -283,15 +284,32 @@ footer {
     margin-top: 60px;
 }
 
+.logout-button, .login-card button {
+    background: #2563eb;
+    color: white;
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 14px;
+    cursor: pointer;
+}
+
+.policy-list, #errorBreakdown { color: #94a3b8; font-size: 12px; }
+.policy-list { margin-top: 8px; overflow-wrap: anywhere; }
+.card { min-width: 0; }
+.login-card { max-width: 360px; margin: 12vh auto; padding: 32px; background: #111827; color: #e5e7eb; border-radius: 16px; }
+.login-card h1 { margin-top: 0; }
+.login-card label { display: block; margin: 16px 0; }
+.login-card input:not([type=hidden]) { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; }
+
 /* ================= RESPONSIVE ================= */
 
 @media (max-width: 1024px) {
     .trends-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .main-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .metrics-grid-three {
@@ -300,6 +318,23 @@ footer {
 }
 
 @media (max-width: 640px) {
+    .header {
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+
+    .brand-section {
+        flex-basis: 100%;
+    }
+
+    .window-control {
+        align-items: flex-start;
+    }
+
+    #logoutForm {
+        margin-left: auto;
+    }
+
     .container {
         margin: 30px auto;
         padding: 0 20px;

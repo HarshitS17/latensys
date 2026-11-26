@@ -1,8 +1,11 @@
 local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local window = tonumber(ARGV[2])
-local limit = tonumber(ARGV[3])
-local member = ARGV[4]
+local server_time = redis.call('TIME')
+local now = tonumber(server_time[1]) * 1000 + math.floor(tonumber(server_time[2]) / 1000)
+-- A deterministic override is used only by the Java regression-test constructor.
+if ARGV[4] ~= '' then now = tonumber(ARGV[4]) end
+local window = tonumber(ARGV[1])
+local limit = tonumber(ARGV[2])
+local member = ARGV[3]
 
 redis.call('ZREMRANGEBYSCORE', key, '-inf', now - window)
 local count = redis.call('ZCARD', key)

@@ -25,11 +25,16 @@ public class ApiRequestLog {
     }
 
     public ApiRequestLog(String method, String uri, int status, long responseTime, String decision) {
+        this(method, uri, status, responseTime, decision, LocalDateTime.now());
+    }
+
+    public ApiRequestLog(String method, String uri, int status, long responseTime,
+                         String decision, LocalDateTime timestamp) {
         this.method = method;
         this.uri = uri;
         this.status = status;
         this.responseTime = responseTime;
-        this.timestamp = LocalDateTime.now();
+        this.timestamp = timestamp;
         this.decision = decision;
     }
 

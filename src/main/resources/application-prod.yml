@@ -1,0 +1,14 @@
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+
+app:
+  upstream-url: ${APP_UPSTREAM_URL}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics

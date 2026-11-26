@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -13,12 +14,18 @@ public class RedisRateLimiter {
     public record Decision(boolean allowed, long remaining, long retryAfterMillis) {}
 
     private final StringRedisTemplate redis;
-    private final Clock clock;
+    private final Clock testClock;
     private final DefaultRedisScript<List> script;
 
-    public RedisRateLimiter(StringRedisTemplate redis, Clock clock) {
+    @Autowired
+    public RedisRateLimiter(StringRedisTemplate redis) {
+        this(redis, null);
+    }
+
+    /** Deterministic time override used by sliding-window regression tests only. */
+    public RedisRateLimiter(StringRedisTemplate redis, Clock testClock) {
         this.redis = redis;
-        this.clock = clock;
+        this.testClock = testClock;
         script = new DefaultRedisScript<>();
         script.setLocation(new ClassPathResource("rate-limit.lua"));
         script.setResultType(List.class);
@@ -30,8 +37,8 @@ public class RedisRateLimiter {
         }
         String key = "rate:v2:" + client + ":" + uri;
         List<?> values = redis.execute(script, List.of(key),
-                String.valueOf(clock.millis()), String.valueOf(windowSeconds * 1000L),
-                String.valueOf(maxRequests), UUID.randomUUID().toString());
+                String.valueOf(windowSeconds * 1000L), String.valueOf(maxRequests),
+                UUID.randomUUID().toString(), testClock == null ? "" : String.valueOf(testClock.millis()));
         if (values == null || values.size() != 3) {
             throw new IllegalStateException("Redis rate-limit script returned no decision");
         }

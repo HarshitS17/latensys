@@ -1,6 +1,7 @@
 package com.harshit.monitoring.filter;
 
 import com.harshit.monitoring.entity.ApiRequestLog;
+import com.harshit.monitoring.config.AppProxyConfig;
 import com.harshit.monitoring.repository.ApiRequestLogRepository;
 import com.harshit.monitoring.service.LatencySampleStore;
 import jakarta.servlet.FilterChain;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
@@ -23,10 +25,17 @@ public class MonitoringFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(MonitoringFilter.class);
     private final ApiRequestLogRepository repository;
     private final LatencySampleStore samples;
+    private final AppProxyConfig appProxy;
 
     public MonitoringFilter(ApiRequestLogRepository repository, LatencySampleStore samples) {
+        this(repository, samples, null);
+    }
+
+    @Autowired
+    public MonitoringFilter(ApiRequestLogRepository repository, LatencySampleStore samples, AppProxyConfig appProxy) {
         this.repository = repository;
         this.samples = samples;
+        this.appProxy = appProxy;
     }
 
     @Override
@@ -49,18 +58,22 @@ public class MonitoringFilter extends OncePerRequestFilter {
             String decision = (String) request.getAttribute(RateLimitingFilter.DECISION_ATTRIBUTE);
             if (decision == null) decision = "ALLOWED";
             try {
-                repository.save(new ApiRequestLog(request.getMethod(), request.getRequestURI(),
+                repository.save(new ApiRequestLog(request.getMethod(), metricPath(request.getRequestURI()),
                         status, latency, decision));
             } catch (RuntimeException e) {
                 log.warn("PostgreSQL monitoring write failed ({})", e.getClass().getSimpleName());
             }
             if ("ALLOWED".equals(decision)) {
                 try {
-                    samples.record(request.getRequestURI(), latency);
+                    samples.record(metricPath(request.getRequestURI()), latency);
                 } catch (RuntimeException e) {
                     log.warn("Redis latency write failed ({})", e.getClass().getSimpleName());
                 }
             }
         }
+    }
+
+    private String metricPath(String uri) {
+        return RequestPaths.metricPath(uri, appProxy == null ? java.util.List.of() : appProxy.getAllowedPaths());
     }
 }

@@ -4,6 +4,8 @@ let endpointChart = null;
 let rpmChart = null;
 let blockedChart = null;
 let sparklineChart = null;
+let refreshInFlight = false;
+let refreshPending = false;
 
 
 /* ================= SAFE FETCH ================= */
@@ -11,6 +13,10 @@ let sparklineChart = null;
 async function safeFetch(url) {
     try {
         const res = await fetch(url);
+        if (res.status === 401) {
+            window.location.assign("/login?expired");
+            return null;
+        }
         if (!res.ok) throw new Error("Network error");
         return await res.json();
     } catch (err) {
@@ -22,8 +28,7 @@ async function safeFetch(url) {
 
 /* ================= GLOBAL METRICS ================= */
 
-async function loadGlobalMetrics() {
-    const data = await safeFetch("/monitor/metrics");
+function loadGlobalMetrics(data) {
     if (!data) {
         document.getElementById("totalRequests").innerText = "Unavailable";
         document.getElementById("avgResponse").innerText = "Unavailable";
@@ -40,10 +45,10 @@ async function loadGlobalMetrics() {
 
 /* ================= ERROR RATE ================= */
 
-async function loadErrorRate() {
-    const data = await safeFetch("/monitor/errors");
+function loadErrorRate(data) {
     if (!data) {
         document.getElementById("errorRate").innerText = "Unavailable";
+        document.getElementById("errorBreakdown").innerText = "Application and enforcement counts unavailable";
         return;
     }
 
@@ -52,6 +57,8 @@ async function loadErrorRate() {
     const el = document.getElementById("errorRate");
 
     el.innerText = rate + "%";
+    document.getElementById("errorBreakdown").innerText =
+        `${data.clientErrors + data.serverErrors} application errors · ${data.blockedRequests} rejected · ${data.unavailableRequests} enforcement failures`;
 
     if (rate > 5) el.style.color = "#ef4444";
     else if (rate > 2) el.style.color = "#facc15";
@@ -61,8 +68,7 @@ async function loadErrorRate() {
 
 /* ================= RATE LIMIT STATS ================= */
 
-async function loadRateLimitStats() {
-    const data = await safeFetch("/monitor/rate-limit");
+function loadRateLimitStats(data, rpmData, blockedData) {
     if (!data) {
         document.getElementById("rateEnabled").innerText = "UNAVAILABLE";
         document.getElementById("rateEnabled").className = "status disabled";
@@ -71,6 +77,7 @@ async function loadRateLimitStats() {
         document.getElementById("blockPercentage").innerText = "Unavailable";
         document.getElementById("currentRPS").innerText = "Unavailable";
         document.getElementById("blockedLastMin").innerText = "Unavailable";
+        document.getElementById("policyList").innerText = "Policies unavailable";
         return;
     }
 
@@ -83,6 +90,10 @@ async function loadRateLimitStats() {
 
     document.getElementById("rateLimit").innerText =
         `${data.limit} requests / ${data.windowSeconds}s`;
+    const overrides = Object.entries(data.overrides || {}).sort(([a], [b]) => a.localeCompare(b));
+    document.getElementById("policyList").innerText = overrides.length
+        ? overrides.map(([path, policy]) => `${path}: ${policy.maxRequests} / ${policy.windowSeconds}s`).join(" · ")
+        : "No endpoint overrides";
 
     const blocked = data.blockedRequests || 0;
     // ✅ P0 Bug #1 FIX: removed getElementById("blockedMetric") — element does not exist in HTML
@@ -93,14 +104,13 @@ async function loadRateLimitStats() {
 
     const percentEl = document.getElementById("blockPercentage");
     if (percentEl) {
-        percentEl.innerText = `${blockPercentage}% of traffic`;
+        percentEl.innerText = `${blockPercentage}% of retained traffic`;
     }
 
     // Current requests per second (estimate)
     const rpsEl = document.getElementById("currentRPS");
     if (rpsEl) {
-        const rpmData = await safeFetch("/monitor/rpm");
-        if (rpmData && rpmData.length > 0) {
+        if (rpmData && rpmData.length > 1) {
             const lastCompletedMinute = rpmData[rpmData.length - 2];
             const rps = Math.round(lastCompletedMinute / 60);
             rpsEl.innerText = rps;
@@ -112,7 +122,6 @@ async function loadRateLimitStats() {
     // Blocked in last minute
     const blockedLastMinEl = document.getElementById("blockedLastMin");
     if (blockedLastMinEl) {
-        const blockedData = await safeFetch("/monitor/blocked-trend");
         if (blockedData && blockedData.length > 0) {
             blockedLastMinEl.innerText = blockedData[blockedData.length - 1];
         } else {
@@ -123,9 +132,14 @@ async function loadRateLimitStats() {
 
 /* ================= SPARKLINE CHART ================= */
 
-async function loadSparklineChart() {
-    const data = await safeFetch("/monitor/blocked-trend");
-    if (!data) return;
+function loadSparklineChart(data) {
+    if (!data) {
+        if (sparklineChart) {
+            sparklineChart.data.datasets[0].data = [];
+            sparklineChart.update('none');
+        }
+        return;
+    }
 
     const ctx = document.getElementById("blockedSparkline");
     if (!ctx) return;
@@ -175,17 +189,15 @@ async function loadSparklineChart() {
 
 /* ================= ENDPOINT P95 CHART ================= */
 
-async function loadEndpointChart() {
-
-    const windowSelect = document.getElementById("windowSelect");
-    if (!windowSelect) return;
-
-    const windowValue = windowSelect.value;
-
-    const data = await safeFetch(
-        `/monitor/endpoints?window=${windowValue}`
-    );
-    if (!data) return;
+function loadEndpointChart(data, windowValue) {
+    if (!data) {
+        if (endpointChart) {
+            endpointChart.data.labels = [];
+            endpointChart.data.datasets[0].data = [];
+            endpointChart.update();
+        }
+        return;
+    }
 
     const labels = data.map(d => d.uri);
     const values = data.map(d => d.p95Latency);
@@ -236,10 +248,15 @@ async function loadEndpointChart() {
 
 /* ================= RPM CHART ================= */
 
-async function loadRPMChart() {
-
-    const data = await safeFetch("/monitor/rpm");
-    if (!data) return;
+function loadRPMChart(data) {
+    if (!data) {
+        if (rpmChart) {
+            rpmChart.data.labels = [];
+            rpmChart.data.datasets[0].data = [];
+            rpmChart.update();
+        }
+        return;
+    }
 
     const ctx = document.getElementById("rpmChart");
     if (!ctx) return;
@@ -283,10 +300,15 @@ async function loadRPMChart() {
 
 /* ================= BLOCKED TREND CHART ================= */
 
-async function loadBlockedChart() {
-
-    const data = await safeFetch("/monitor/blocked-trend");
-    if (!data) return;
+function loadBlockedChart(data) {
+    if (!data) {
+        if (blockedChart) {
+            blockedChart.data.labels = [];
+            blockedChart.data.datasets[0].data = [];
+            blockedChart.update();
+        }
+        return;
+    }
 
     const ctx = document.getElementById("blockedChart");
     if (!ctx) return;
@@ -331,19 +353,50 @@ async function loadBlockedChart() {
 /* ================= INIT ================= */
 
 async function loadAll() {
-    await Promise.all([
-        loadGlobalMetrics(),
-        loadErrorRate(),
-        loadRateLimitStats(),
-        loadEndpointChart(),
-        loadRPMChart(),
-        loadBlockedChart(),
-        loadSparklineChart()
-    ]);
+    if (refreshInFlight) {
+        refreshPending = true;
+        return;
+    }
+    refreshInFlight = true;
+    const windowValue = document.getElementById("windowSelect")?.value || "5";
+    try {
+        const [metrics, rateLimit, endpoints, rpm, blocked] = await Promise.all([
+            safeFetch("/monitor/metrics"),
+            safeFetch("/monitor/rate-limit"),
+            safeFetch(`/monitor/endpoints?window=${windowValue}`),
+            safeFetch("/monitor/rpm"),
+            safeFetch("/monitor/blocked-trend")
+        ]);
+        loadGlobalMetrics(metrics);
+        loadErrorRate(metrics);
+        loadRateLimitStats(rateLimit, rpm, blocked);
+        loadEndpointChart(endpoints, windowValue);
+        loadRPMChart(rpm);
+        loadBlockedChart(blocked);
+        loadSparklineChart(blocked);
+    } finally {
+        refreshInFlight = false;
+        if (refreshPending) {
+            refreshPending = false;
+            loadAll();
+        }
+    }
 }
 
 
 document.addEventListener("DOMContentLoaded", function () {
+
+    const logoutForm = document.getElementById("logoutForm");
+    if (logoutForm) {
+        logoutForm.addEventListener("submit", async event => {
+            event.preventDefault();
+            const csrf = await safeFetch("/auth/csrf");
+            if (csrf?.token) {
+                document.getElementById("logoutCsrf").value = csrf.token;
+                logoutForm.submit();
+            }
+        });
+    }
 
     const windowSelect =
         document.getElementById("windowSelect");
@@ -351,7 +404,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (windowSelect) {
         windowSelect.addEventListener(
             "change",
-            loadEndpointChart
+            loadAll
         );
     }
 

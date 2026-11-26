@@ -36,7 +36,8 @@ public class MonitoringController {
                 "successfulRequests", counts.successful(),
                 "clientErrors", counts.clientErrors(),
                 "serverErrors", counts.serverErrors(),
-                "averageResponseTime", service.getAverageResponseTime()
+                "averageResponseTime", counts.averageResponseTime(),
+                "errorRate", counts.errorRate()
         );
     }
 

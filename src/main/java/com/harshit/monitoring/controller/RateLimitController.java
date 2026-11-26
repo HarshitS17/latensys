@@ -29,6 +29,7 @@ public class RateLimitController {
                 "enabled", true,
                 "limit", rateLimitConfig.getDefaultMaxRequests(),
                 "windowSeconds", rateLimitConfig.getDefaultWindowSeconds(),
+                "overrides", rateLimitConfig.getOverrides(),
                 "blockedRequests", counts.blocked(),
                 "attemptedRequests", counts.attempted(),
                 "blockPercentage", counts.blockedPercentage()
