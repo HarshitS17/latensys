@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("prod")
 @SpringBootTest(properties = {
         "alerts.enabled=false", "retention.enabled=false", "app.upstream-url=http://127.0.0.1:1",
+        "security.trusted-proxy-ip=172.30.40.10",
         "security.admin.username=admin",
         "security.admin.password-hash=$2y$10$CcpVfYYGx2.BEzGxVJ/2xudb2CV24UMbqZp0VJVtedZPnK8ph9d3S"
 })

@@ -3,6 +3,7 @@ package com.harshit.monitoring.filter;
 import com.harshit.monitoring.config.RateLimitConfig;
 import com.harshit.monitoring.config.AppProxyConfig;
 import com.harshit.monitoring.service.RedisRateLimiter;
+import com.harshit.monitoring.service.ClientIdentityResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.ServletException;
@@ -26,16 +27,19 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private final RedisRateLimiter limiter;
     private final RateLimitConfig config;
     private final AppProxyConfig appProxy;
+    private final ClientIdentityResolver identity;
 
     public RateLimitingFilter(RedisRateLimiter limiter, RateLimitConfig config) {
-        this(limiter, config, null);
+        this(limiter, config, null, new ClientIdentityResolver(""));
     }
 
     @Autowired
-    public RateLimitingFilter(RedisRateLimiter limiter, RateLimitConfig config, AppProxyConfig appProxy) {
+    public RateLimitingFilter(RedisRateLimiter limiter, RateLimitConfig config, AppProxyConfig appProxy,
+                              ClientIdentityResolver identity) {
         this.limiter = limiter;
         this.config = config;
         this.appProxy = appProxy;
+        this.identity = identity;
     }
 
     @Override
@@ -52,7 +56,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         RateLimitConfig.Policy rule = config.resolve(uri);
         RedisRateLimiter.Decision decision;
         try {
-            decision = limiter.check(request.getRemoteAddr(), uri,
+            decision = limiter.check(identity.resolve(request), uri,
                     rule.getMaxRequests(), rule.getWindowSeconds());
         } catch (RuntimeException e) {
             log.warn("Rate-limit decision unavailable ({})", e.getClass().getSimpleName());

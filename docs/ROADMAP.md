@@ -29,6 +29,10 @@ Grouped endpoint and minute queries make dashboard database query count independ
 
 Single-administrator Spring Security sessions protect the dashboard and management APIs. The production profile disables test controllers. Validated exact-path rate policies replace hardcoded endpoint rules. A fixed, allowlisted, bounded HTTP proxy monitors and rate-limits requests to an independent Spring Boot demo app. Acceptance: Java 17 verification, real HTTP smoke testing, and an authenticated local load run pass; a reviewer can start both applications, send real upstream traffic, and inspect the dashboard.
 
-## Later — Multi-service monitoring
+## M4 — Final portfolio release (implemented locally; public deployment pending)
 
-Monitoring multiple upstream applications is outside this bounded release. It would require service identity, separate policy scopes, and stronger deployment controls.
+Multi-stage Java 17 images, non-root processes, health checks, and a production Compose stack package Latensys, the demo, PostgreSQL, Redis, and Caddy. Only Caddy publishes host ports. The production profile requires a pinned trusted proxy address and Secure session cookies; Caddy sanitizes forwarding headers. Deployment, architecture, API, demonstration, and release documentation are included. Local verification results and any remaining gaps are reported separately; a public VM deployment requires the owner's resources and authorization.
+
+## Beyond v1.0 scope
+
+Multi-service monitoring and enterprise SaaS features are not planned milestones for this bounded release.

@@ -50,3 +50,5 @@ logs/
 *.pid
 .coverage/
 coverage/
+__pycache__/
+*.pyc

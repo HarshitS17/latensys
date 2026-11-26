@@ -100,6 +100,7 @@ security:
   admin:
     username: ${ADMIN_USERNAME}
     password-hash: ${ADMIN_PASSWORD_HASH}
+  trusted-proxy-ip: ${TRUSTED_PROXY_IP:}
 
 app:
   upstream-url: ${APP_UPSTREAM_URL:http://127.0.0.1:8081}

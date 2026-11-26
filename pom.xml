@@ -15,7 +15,7 @@
 
     <groupId>com.harshit</groupId>
     <artifactId>latensys</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>latensys</name>
     <description>
         Real-time API monitoring, P95 latency analysis,

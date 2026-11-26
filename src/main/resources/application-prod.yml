@@ -1,4 +1,7 @@
 server:
+  shutdown: graceful
+  tomcat:
+    use-relative-redirects: true
   servlet:
     session:
       cookie:
@@ -12,3 +15,10 @@ management:
     web:
       exposure:
         include: health,metrics
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+security:
+  trusted-proxy-ip: ${TRUSTED_PROXY_IP}

@@ -1,0 +1,8 @@
+{$DOMAIN} {
+    encode zstd gzip
+    reverse_proxy latensys:8080 {
+        header_up X-Real-IP {remote_host}
+        header_up -X-Forwarded-For
+        header_up -Forwarded
+    }
+}
